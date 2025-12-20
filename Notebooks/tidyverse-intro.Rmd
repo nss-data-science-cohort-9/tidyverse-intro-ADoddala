@@ -1,0 +1,106 @@
+---
+title: "Tidyverse Itroduction Exercise "
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+gdp_df <- read_csv("../data/gdp_per_capita.csv")
+
+gdp_df |> 
+  head(10)
+
+gdp_df |> 
+  tail(10)  
+
+#Drop the 'Value Footnotes' column, and rename the remaining columns to 'Country', 'Year', and 'GDP_Per_Capita'
+gdp_df <- gdp_df |>
+  select(-`Value Footnotes`) |> 
+  rename('Country' = 'Country or Area', 'GDP_Per_Capita' = 'Value')  
+
+#Which years are represented in this data set? How many observations are there per year?  
+num_of_obser_per_year <- gdp_df |>  
+  group_by(Year) |> 
+  count()
+#plot to view the number of observations per year
+ggplot(
+  data=gdp_df,
+  mapping=aes(x=Year))+
+  geom_bar() 
+
+#No.of countries represented in the dataset
+num_of_countries <- gdp_df |>  
+  distinct(Country) |> 
+  count()
+
+#Fewest observation countries
+fewest_observations_countries <- gdp_df |>  
+  group_by(Country) |> 
+  count(Country) |> 
+  arrange(n) |> 
+  head(10)
+
+#Create a new tibble by subsetting `gdp_df` to just the year 2021
+gdp_2021 <- gdp_df |>
+  filter(Year == 2021)
+
+#Use `summary()` to find the summary statistics for GDP per capita in 2021
+gdp_summary_stats_2021 <- gdp_2021 |> 
+  group_by(Year) |> 
+  summarise(mean(GDP_Per_Capita))
+
+#Create a histogram of GDP Per Capita numbers for 2021
+ggplot(
+  data=gdp_2021,
+  mapping = aes(x=GDP_Per_Capita))+
+  geom_histogram(bins=25)
+
+#Find the top 5 counties and bottom 5 countries by GDP per capita in 2021.
+Top5_Gdp_2021 <- gdp_2021 |>
+  group_by(Country) |> 
+  arrange(desc(GDP_Per_Capita)) |> 
+  head(5)
+gdp_2021 |>
+  group_by(Country) |> 
+  arrange(desc(GDP_Per_Capita)) |> 
+  tail(5)
+
+# Now, return to the full dataset, `gdp_df`. Pivot the data for 1990 and 2021 (using `pivot_wider()` function) so that each row corresponds to a country, each column corresponds to a year, and the values in the table give the GDP_Per_Capita amount. Drop any rows that are missing values for either 1990 or 2021. Save the result to a tibble named `gdp_pivoted`
+
+gdp_pivoted <- gdp_df |> 
+  filter(Year %in% c("1990", "2021")) |> 
+  pivot_wider(names_from = Year, values_from = GDP_Per_Capita) |> 
+  drop_na()
+
+
+#Create a new column in `gdp_pivoted` named `Percent_Change`. This column should contain the percent change in GDP_Per_Capita from 1990 to 2021. Hint: Percent change is calculated as 100*(New Value - Old Value) / Old Value.
+
+
+gdp_pivoted <- gdp_pivoted |> 
+  mutate(percent_change = 100* (`2021`-`1990`)/`1990`) 
+  
+# How many countries experienced a negative percent change in GDP per capita from 1990 to 2021?
+
+gdp_pivoted |>
+  filter(percent_change<0) |> 
+  count() |> 
+  print()
+
+
+# Which country had the highest % change in GDP per capita? Create a line plot showing these country's GDP per capita for all years for which you have data. Put both line charts on the same plot.
+
+gdp_pivoted |> 
+  group_by(Country) |> 
+  summarise(high_perc_change = sum(percent_change)) |> 
+  slice_max(high_perc_change)
+  
+
+
+
+```
+
+
