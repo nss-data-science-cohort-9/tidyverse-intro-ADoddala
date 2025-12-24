@@ -3,7 +3,6 @@ title: "Tidyverse Itroduction Exercise "
 output: html_notebook
 ---
 
-
 ```{r}
 library(tidyverse)
 ```
@@ -83,7 +82,7 @@ gdp_pivoted <- gdp_df |>
 gdp_pivoted <- gdp_pivoted |> 
   mutate(percent_change = 100* (`2021`-`1990`)/`1990`) 
   
-# How many countries experienced a negative percent change in GDP per capita from 1990 to 2021?
+#11. How many countries experienced a negative percent change in GDP per capita from 1990 to 2021?
 
 gdp_pivoted |>
   filter(percent_change<0) |> 
@@ -91,16 +90,187 @@ gdp_pivoted |>
   print()
 
 
-# Which country had the highest % change in GDP per capita? Create a line plot showing these country's GDP per capita for all years for which you have data. Put both line charts on the same plot.
+#12. Which country had the highest % change in GDP per capita? Which country had the second highest % change? Create a line plot showing these country's GDP per capita for all years for which you have data. Put both line charts on the same plot."
 
-gdp_pivoted |> 
+top_perc_change_Country = gdp_pivoted |> 
   group_by(Country) |> 
   summarise(high_perc_change = sum(percent_change)) |> 
-  slice_max(high_perc_change)
-  
-
-
+  slice_max(high_perc_change, n=2) |> 
+  pull(Country)
+ggplot(
+    gdp_df |> 
+      filter(Country %in% top_perc_change_Country) , 
+      mapping=aes(x=Year,y=GDP_Per_Capita , color=Country))+
+      geom_line()
 
 ```
 
+13. Read in continents.csv contained in the `data` folder into a new tibble called `continents`. We will be using this tibble to add a new column to our data set.
+
+```{r}
+continents = read_csv("../data/continents.csv")
+
+
+#14. Merge gdp_df and continents. Keep only the countries that appear in both data frames. Save the result back to gdp_df.
+
+gdp_df <- 
+  merge(gdp_df,continents, by = 'Country', all=FALSE) #all = False(default) performs an (keeps only rows with matches in both dfs ) inner join
+
+#15. Determine the number of countries per continent. Create a bar chart showing this.
+
+Countrie_per_continent <- gdp_df |> 
+  group_by(Continent) |>
+  distinct(Country) |> 
+  count() 
+ggplot(data = Countrie_per_continent,
+       mapping = aes(x=reorder(Continent,-n), y=n))+
+       geom_col()+      # geom_col plots precomputed values, geom_bar assumes it as raw data and does its own computing since we already counted here geom_bar will not work.
+       labs(
+         title= "Number of Countries per Continent",
+         x= "Continent",
+         y= "Number of Countries"
+       )
+
+
+#16. Create a boxplot showing GDP per capita in 2021 split out by continent. What do you notice?
+
+gdp_df |>  
+  filter(Year == 2021) |> 
+  ggplot(mapping = aes(x=Continent, y=GDP_Per_Capita))+
+  geom_boxplot() +
+  labs(
+    title = "GDP Per Capita by Continent (2021)",
+    x= "Continent",
+    y= "GDP Per Capita"
+  )+
+  theme_minimal()+
+  theme(  
+    plot.title = element_text(hjust = 0.5)      # It adjusts the title text to the center.
+  )
+
+# Note: Africa has the lower GDP Per Capita. Europe has the highest avg GDP per Capita followed by North Ameica. Asia shows large variability with both low income and very high income countries.There are many outliers and the distributions are right skewed, the small number of countries have extremely high GDP per Capita.
+
+```
+17. Read life_expectancy.csv into a tibble named life_expectancy. Do not modify the csv file in order to read this data in.
+
+
+```{r}
+life_expectancy <- read_csv("../data/life_expectancy.csv", skip = 4)  # skipped four rows while reading the data.
+
+#18.  Drop the Country Code, Indicator Name, and Indicator Code columns. Then use `pivot_longer` to convert your data from wide to long. That is, instead of having one row per country and multiple colums per year, we want to have multiple rows per country and a single column for year. After melting, rename the columns to `Country`, `Year`, and `Life_Expectancy`.
+
+life_expectancy <- life_expectancy |> 
+  select(-c("Country Code","Indicator Name","Indicator Code")) |> 
+  pivot_longer(cols = -"Country Name", names_to = "Year",values_to = "Life_Expectancy") |> 
+  rename(Country = "Country Name")
+
+
+#19. What was the first country with a life expectancy to exceed 80?
+
+life_expectancy |> 
+  filter(Life_Expectancy>80) |> 
+  arrange(Year) |> 
+  slice(1) |> 
+  select(Country)
+#Note: Japan was the first Country to have a life expectancy to exceed 80.
+
+```
+20. Merge `gdp_df` and `life_expectancy`, keeping all countries and years that appear in both tibbles. Save the result to a new tibble named `gdp_le`. If you get any errors in doing this, read them carefully and correct them. Look at the first five rows of your new data frame to confirm it merged correctly. Also, check the last five rows to make sure the data is clean and as expected.
+
+```{r}
+gdp_le <- 
+  merge(gdp_df,life_expectancy, by = c("Country", "Year"))
+
+gdp_le |> 
+  head()
+
+gdp_le |> 
+  tail()
+ 
+```
+21. Create a new tibble, named `gdp_le_2021` by extracting data for the year 2021 from `gdp_le`. How many countries have a life expectancy of at least 80 in 2021?
+
+```{r}
+gdp_le_2021 <- gdp_le |> 
+  filter(Year==2021)
+
+no.of_countries_above80_le <- gdp_le_2021 |> 
+  filter(Life_Expectancy>=80) |> 
+  distinct(Country) |> 
+  count() |> 
+  pull(n)
+print(no.of_countries_above80_le)
+
+```
+
+22. Find the countries that had the top 3 largest GDP per capita figures for 2021. Create a plot showing the change in life expectancy over time for these three countries. This plot should be faceted so that each country is contained in its own figure.
+
+```{r}
+top3_gdp_countries_2021 <- gdp_le_2021 |> 
+  slice_max(GDP_Per_Capita, n=3) |> 
+  pull(Country) 
+
+ggplot(
+  gdp_le |> 
+    filter(Country %in% top3_gdp_countries_2021),
+    mapping = aes(x=Year, y= Life_Expectancy))+
+  geom_line()+
+  facet_wrap(~Country)  #seperates plot per Country
+```
+
+23. Create a scatter plot of Life Expectancy vs GDP per Capita for the year 2021. What do you notice?
+
+```{r}
+ 
+ggplot(
+  data=gdp_le_2021,
+  mapping= aes(x=GDP_Per_Capita, y= Life_Expectancy))+
+  geom_point(na.rm = TRUE)+
+  labs(
+    title="GDP Per Capita VS Life expectancy",
+    x="GDP Per Capita",
+    y= "Life Expectancy"
+  )+
+  theme(  
+    plot.title = element_text(hjust = 0.5)      # It adjusts the title text to the center.
+  )
+
+#Note: GDP Per Capita and Life expectancy are positively correlated. when the GDP per capita increases the life expectancy also increases.
+
+
+#-------------------------------------------------
+#24. Find the correlation between Life Expectancy and GDP per Capita for the year 2021. What is the meaning of this number?
+
+gdp_le_2021 |> 
+  select(Life_Expectancy, GDP_Per_Capita) |> 
+  filter(!is.na(Life_Expectancy), !is.na(GDP_Per_Capita)) |> 
+  cor()
+
+#Note: It has the strong positive linear relationship between Life_Expectancy and GDP_Per_Capita is 0.7450812. Countries with higher GDP tend to have higher Life expectancy.
+
+#-----------------------------------------------------
+
+#25. Add a column to `gdp_le_2021` and calculate the logarithm of GDP per capita. Find the correlation between the log of GDP per capita and life expectancy. How does this compare to the calculation in the previous part? Look at a scatter plot to see if the result of this calculation makes sense.
+
+log_gdp_pc <- gdp_le_2021 |>
+  mutate(lg_GDP_per_Capita = log(GDP_Per_Capita))  
+
+log_gdp_pc |>   
+summarize(correlation = cor(Life_Expectancy,lg_GDP_per_Capita, use = "complete.obs"))      # summarizing of correlation gives single correlation value instead of matrix. "complete.obs" handles missing values
+
+ggplot(
+  data=log_gdp_pc,
+  mapping= aes(x=lg_GDP_per_Capita, y= Life_Expectancy))+
+  geom_point(na.rm = TRUE)+
+  labs(
+    title="Log GDP Per Capita VS Life expectancy",
+    x="Log GDP Per Capita",
+    y= "Life Expectancy"
+  )+
+  theme(  
+    plot.title = element_text(hjust = 0.5) # It adjusts the title text to the center.
+  )
+
+#Note: Taking the logarithm of GDP per capita increases the correlation with life expectancy from 0.745 to 0.847.This indicates a stronger and more linear relationship. This means that life expectancy increases rapidly at low income levels, but gains slow down at higher income levels.
+```
 
