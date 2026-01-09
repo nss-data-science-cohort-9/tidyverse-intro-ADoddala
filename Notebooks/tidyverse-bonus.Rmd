@@ -1,0 +1,141 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+
+```{r}
+library(tidyverse)
+
+```
+
+1. Read in `districts.csv` into a tibble named `districts`.
+
+2. Notice that the first row corresponds to the whole State of Tennessee. Remove this row and save the result back to `districts`.
+
+```{r}
+districts <- read_csv("../data/districts.csv") |>
+  filter(!(system_name == "State of Tennessee"))
+```
+
+3. How many districts have a proficiency rate of at least 80% for both alg_1 and eng_1?
+
+```{r}
+districts |> 
+  filter(alg_1 >= 80 & eng_1 >=80)
+```
+
+4. How many districts have a proviciency rate less than 50% for either alg_1 or eng_1?
+
+
+```{r}
+districts |> 
+  filter(alg_1 < 50 | eng_1 < 50) |> 
+  print()
+```
+
+5. Which district has the lowest graduation rate?
+
+```{r}
+districts |> 
+  filter(grad == min(grad, na.rm = TRUE)) |> 
+  select(system_name, grad)
+```
+
+6. Within the Mid Cumberland region, which district has the highest ACT composite?
+
+```{r}
+districts |> 
+  filter(region == "Mid Cumberland") |> 
+  filter(act_composite == max(act_composite, na.rm=TRUE)) |> 
+  select(system_name, act_composite, region)
+  
+```
+
+7. Create a scatter plot to compare alg_1 proficiency rates to alg_2 rates. What do you notice? Facet this plot by region. Does anything stand out when you facet the plots?
+
+```{r}
+
+ggplot(data=districts, 
+       mapping= aes(x = alg_1, y = alg_2)
+)+
+  geom_point(na.rm = TRUE)+
+  labs(
+    title="alg_1 proficiency rate vs alg_2 proficiency rate",
+    x="Alg_1",
+    y="Alg_2"
+  )
+```
+
+# Alg_1 and Alg_2 have linear relationship. 
+
+#Facet the plot by region
+
+```{r}
+ggplot(data=districts, 
+       mapping= aes(x = alg_1, y = alg_2)
+)+
+  geom_point(na.rm = TRUE)+
+  labs(
+    title="alg_1 proficiency rate vs alg_2 proficiency rate",
+    x="Alg_1",
+    y="Alg_2"
+  )+
+  facet_wrap(~region)
+```
+
+# All the regions have positive linear relationship except upper Cumberland has the Non linear/curved relationship.
+
+8. When creating this bar chart you may have noticed that some districts have missing enrollment values. For how many districts is this the case?
+```{r}
+districts |> 
+  filter(is.na(enrollment)) |>  
+  nrow()
+```
+
+9. A lot of rows are missing additional values. Which district has the largest number of missing values (across all variables)? Hint: you might want to look at row wise and c_across to answer this question.
+
+```{r}
+districts |> 
+  rowwise() |> #Treats each row individually 
+  mutate_all(as.character) |>  # converts different data types in to character data type ( mutate is not allowing to calculate nas due to different datatype so first converting them into same dt )
+  mutate(total_nas = sum(is.na(c_across(everything())))) |> 
+  ungroup() |> # Remove row wise grouping
+  filter(total_nas == max(total_nas, na.rm = TRUE)) |> 
+  select(system_name, total_nas)
+```
+```{r} #another way to caluculate sum of nas
+districts |> 
+  rowwise() |> #Treats each row individually 
+  mutate_all(is.na) |> 
+  mutate(total_nas = sum((c_across(everything())))) |> 
+  ungroup()
+```
+
+
+10. What is the mean graduation rate across all districts? What might be wrong with using just the regular mean to assess average graduation rates?
+
+```{r}
+
+districts |> 
+  summarise(mean_value = mean(grad, na.rm = TRUE)) # it gives average Tennessee School district graduates(90.06562%)
+  
+```
+#If use only mean to calculate , it ignores the difference in district size and number of students graduated from the enrolled students. It just calculates the avg.
+
+
+11. Redo the previous question but use a weighted average (`weighted.mean`) graduation across all districts, weighing by enrollment. How much does this change your answer? Can you explain using the data the reason for the big change from using the mean?
+```{r}
+districts |> 
+  filter(!is.na(grad), !is.na(enrollment)) |>
+  summarise(
+    mean_value = mean(grad),
+    weighted_mean_value = weighted.mean(grad, enrollment),
+    difference = mean_value - weighted_mean_value) 
+```
+# There is a difference of 3.532752	in mean_value and weighted_mean_value. 
+# while caluculating weighted_mean_value it treats every district equally.
+
+
