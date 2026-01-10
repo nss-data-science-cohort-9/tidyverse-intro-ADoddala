@@ -139,3 +139,111 @@ districts |>
 # while caluculating weighted_mean_value it treats every district equally.
 
 
+12. Find the un weighted and weighted average graduation rate by district.
+
+```{r}
+districts |> 
+  filter(!is.na(grad), !is.na(enrollment)) |>
+  group_by(system_name) |> 
+  summarise(
+    mean_value = mean(grad, na.rm = TRUE),
+    weighted_mean_value = weighted.mean(grad, enrollment, na.rm = TRUE)) 
+
+```
+# since we have one row per district we got same values for weighted and unweighted graduation rate when we groupby district .
+
+
+
+**Continued Exploration and Practice**
+
+13. Read in the school-level testing data for 2014, available [here](https://www.tn.gov/content/dam/tn/education/data/data_2014_school_base.xlsx). You might find the readxl library useful for this task. If you use this library, be sure to look at the `na` argument for the `read_excel` function.
+
+```{r}
+library(readxl)
+```
+
+```{r}
+school_base_2014 <- read_excel("../data/data_2014_school_base.xlsx", na = c("NA","*", "**"))
+```
+
+To answer the following questions, use "All Students" for the subgroup. 
+
+```{r}
+all_students_2014 <- school_base_2014 |> 
+  filter(subgroup == "All Students") 
+```
+
+```{r}
+glimpse(all_students_2014)
+```
+
+14. How many schools have at least 20 percent of students below bsc for Algebra I? Which districts do these schools belong to?
+
+```{r}
+all_students_2014 |> 
+  filter(subject == "Algebra I") |> 
+  filter(pct_below_bsc>=20) |> 
+  select(system_name, school_name) |> # selecting the district name for those schools
+  summarize(n = n()) # summarizes total number of schools at least 20 percent of students below bsc for Algebra I
+```
+15. How many schools have at least 20 percent of students below bsc for _both_ Algebra I and English I?
+
+```{r}
+all_students_2014 |> 
+  filter((subject == "Algebra I") |  (subject =="English I")) |> 
+  filter(pct_below_bsc>=20) |> 
+  summarize(n = n()) |> 
+  pull()
+  
+```
+
+16. Which grade has the highest pct_adv for Algebra I? Plot the average pct_adv per grade level as a bar chart. Make sure that the bars are ordered by grade level.
+
+```{r}
+avg_pct_adv_per_grade <- all_students_2014 |> 
+  filter(subject == "Algebra I") |> 
+  group_by(grade) |>
+  summarize(pct_mean = mean(pct_adv, na.rm=TRUE)) |> 
+  filter(!is.na(pct_mean)) |> 
+  arrange(grade)
+
+avg_pct_adv_per_grade |> 
+  slice_max(pct_mean, n=1) |> 
+print()
+
+ggplot(data = avg_pct_adv_per_grade, 
+       mapping= aes(x= factor(grade,levels=grade), y= pct_mean))+
+  geom_col()+
+  labs(
+    x="Grade level",
+    y= "Average pct_adv",
+    title = "Grade level vs Average pct_adv"
+  )
+  
+```
+
+17. Find the correlation between pct_adv for Algebra I and pct_adv for Algebra II by school. Create a scatterplot showing Algebra II scores vs. Algebra I scores by school.
+
+```{r}
+Alg_scores <- all_students_2014 |> 
+  group_by(school, subject) |> 
+  summarise(alg_pct_adv_mean= mean(pct_adv, na.rm =TRUE), .groups = "drop") |>  #(.groups = "drop") used to return un grouped data 
+  filter (subject == "Algebra I" | subject == "Algebra II") |> 
+  pivot_wider(names_from = subject, values_from = alg_pct_adv_mean) |> 
+  rename(Algebra_1 = "Algebra I", Algebra_2 = "Algebra II" ) 
+
+
+ correlatin_alg1_alg2 <- cor(Alg_scores["Algebra_1"], Alg_scores["Algebra_2"], use = "complete.obs")  #(use = "complete.obs") to calculate the correlation where the two values present and ignore any missing values
+ 
+ 
+ ggplot(data=Alg_scores,
+        mapping= aes(x= Algebra_1, y= Algebra_2))+
+   geom_point(mapping = aes(color = school), na.rm= TRUE)+
+  labs(
+    x="Algebra1",
+    y= "Algebra2",
+    title = "Algebra1 vs Algebra2"
+  )
+ 
+```
+
